@@ -31,7 +31,7 @@ app.get('/cards', (req, res) => {
 app.get('/card/:url', (req, res) => {
   const cardURL = req.params.url;
   const card = cards.find(c => c.url === cardURL);
-
+  console.log(card)
   if (card) {
     res.json(card);
   } else {
