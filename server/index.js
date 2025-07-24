@@ -13,14 +13,27 @@ const cards = [
 ];
 
 
+
 // Route 1: Home page
-app.get('/', (req, res) => {
-  res.send('🏠 Welcome to Realms - MTG Card Explorer');
+app.get('/', async (req, res) => {
+  
+  const fetchPromises = Array.from({ length: 1 }, () => {
+    return fetch('https://api.scryfall.com/cards/random')
+      .then(res => res.json())
+      .catch(err => console.error('Error fetching random card:', err));
+  })
+
+  const randomCards = await Promise.all(fetchPromises);
+
+   // Send formatted JSON
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(randomCards, null, 2)); // 'null, 2' pretty-prints the JSON
+  //res.json(randomCards);
+
 });
 
 app.get('/cards', (req, res) => {
   const search = req.query.search?.toLowerCase() || '';
-  console.log( `Searching for cards with prefix: ${search}`);
   const filtered = cards.filter(card =>
     card.name.toLowerCase().includes(search)  // ← only prefix match
   );
@@ -28,16 +41,24 @@ app.get('/cards', (req, res) => {
 });
 
 // Route 3: Single card product page
-app.get('/card/:url', (req, res) => {
-  const cardURL = req.params.url;
-  const card = cards.find(c => c.url === cardURL);
-  console.log(card)
-  if (card) {
+app.get('/card/:url', async (req, res) => {
+  const cardName = req.params.url.replace(/-/g, ' '); // "black-lotus" → "black lotus"
+
+  try {
+    const response = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
+    
+    if (!response.ok) {
+      return res.status(404).json({ error: 'Card not found on Scryfall' });
+    }
+
+    const card = await response.json();
     res.json(card);
-  } else {
-    res.status(404).json({ error: 'Card not found' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error retrieving card data' });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
